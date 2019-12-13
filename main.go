@@ -32,23 +32,16 @@ var statsdClient *statsd.Client
 func handler(w http.ResponseWriter, r *http.Request) {
 	var data []Data
 	body, err := ioutil.ReadAll(r.Body)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	check(err)
 	err = json.Unmarshal(body, &data)
+	check(err)
 
-	if err != nil {
-		log.Fatal(err)
-	}
 	for _, d := range data {
 		metric := fmt.Sprintf("pepipost.email.%s", d.Event)
 		err = statsdClient.Incr(metric, nil, 1)
-		if err != nil {
-			log.Fatal(err)
-		}
+		check(err)
 	}
+
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
 }
@@ -62,14 +55,16 @@ func readinessHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-func main() {
-	cl, err := statsd.New("")
-
-	statsdClient = cl
-
+func check(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+func main() {
+
+	cl, err := statsd.New("")
+	check(err)
+	statsdClient = cl
 
 	log.Println("Server Started")
 

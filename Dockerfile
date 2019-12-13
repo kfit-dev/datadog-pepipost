@@ -1,17 +1,14 @@
-FROM golang:latest AS builder
-
+FROM golang:alpine AS builder
+RUN apk add --no-cache upx
+RUN mkdir /app
+ADD . /app/
 WORKDIR /app
-COPY . ./
 RUN go mod download
-RUN CGO_ENABLED=0 GOOS=linux GOPROXY=https://proxy.golang.org go build -o app main.go
+RUN CGO_ENABLED=0 GOOS=linux GOPROXY=https://proxy.golang.org go build -ldflags "-s -w" -a -installsuffix cgo -o app main.go
+RUN upx --ultra-brute -qq app
+RUN upx -t app
 
-FROM alpine:latest
-RUN apk --no-cache add ca-certificates dumb-init
-RUN addgroup -S app
-RUN adduser -S app -G app
-USER app
-WORKDIR /app
+FROM scratch
 COPY --from=builder /app/app .
 EXPOSE 8080
-ENTRYPOINT ["/usr/bin/dumb-init","--"]
-CMD ["./app"]
+CMD ["/app"]
