@@ -44,7 +44,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, d := range data {
 		metric := fmt.Sprintf("pepipost.email.%s", d.Event)
-		log.Println(metric)
 		err = statsdClient.Incr(metric, nil, 1)
 		if err != nil {
 			log.Fatal(err)
