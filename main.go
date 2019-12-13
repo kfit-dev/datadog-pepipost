@@ -34,14 +34,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	check(err)
 	err = json.Unmarshal(body, &data)
-	check(err)
-
-	for _, d := range data {
-		metric := fmt.Sprintf("pepipost.email.%s", d.Event)
-		err = statsdClient.Incr(metric, nil, 1)
-		check(err)
+	if err == nil {
+		for _, d := range data {
+			metric := fmt.Sprintf("pepipost.email.%s", d.Event)
+			err = statsdClient.Incr(metric, nil, 1)
+			check(err)
+		}
 	}
-
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
 }
