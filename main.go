@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/DataDog/datadog-go/statsd"
+	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -32,37 +33,42 @@ type Data struct {
 func init() {
 	log.SetFormatter(&log.JSONFormatter{})
 	log.SetOutput(os.Stdout)
-	log.SetLevel(log.WarnLevel)
 }
 
 func main() {
 	svc, err := statsd.New("")
 
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatal(err)
 	}
 
-	log.Info("Server Started")
+	router := httprouter.New()
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	router.HandlerFunc("POST", "/", func(w http.ResponseWriter, r *http.Request) {
 		var data []Data
 
 		body, err := ioutil.ReadAll(r.Body)
 
 		if err != nil {
-			log.Fatalln(err)
+			log.Error(err)
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("BAD_REQUEST"))
 		}
 
 		err = json.Unmarshal(body, &data)
 
-		if err == nil {
-			for _, d := range data {
-				metric := fmt.Sprintf("pepipost.email.%s", d.Event)
-				err = svc.Incr(metric, nil, 1)
+		if err != nil {
+			log.Error(err)
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("BAD_REQUEST"))
+		}
 
-				if d.Event == "invalid" {
-					log.WithField("event", d).Error("pepipost.email.invalid")
-				}
+		for _, d := range data {
+			metric := fmt.Sprintf("pepipost.email.%s", d.Event)
+			err = svc.Incr(metric, nil, 1)
+
+			if d.Event == "invalid" {
+				log.WithField("event", d).Warn("pepipost.email.invalid")
 			}
 		}
 
@@ -70,19 +76,21 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
-	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	router.HandlerFunc("GET", "/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
 
-	http.HandleFunc("/readiness", func(w http.ResponseWriter, r *http.Request) {
+	router.HandlerFunc("GET", "/readiness", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
 
-	err = http.ListenAndServe(":8080", nil)
+	log.Info("Server Started")
+
+	err = http.ListenAndServe(":8080", router)
 
 	if err != nil {
-		log.Fatalf("Could not start server: %s\n", err.Error())
+		log.Fatalf("Could not start server: %s\n", err)
 	}
 }
