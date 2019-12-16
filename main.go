@@ -3,72 +3,86 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/DataDog/datadog-go/statsd"
 	"io/ioutil"
-	"log"
 	"net/http"
+	"os"
+
+	"github.com/DataDog/datadog-go/statsd"
+	log "github.com/sirupsen/logrus"
 )
 
 type Data struct {
-	//TransID int64 `json:"TRANSID"`
-	// RESPONSE       string `json:"RESPONSE"`
-	// EMAIL string `json:"EMAIL"`
-	// TIMESTAMP      int    `json:"TIMESTAMP"`
-	// FROMADDRESS    string `json:"FROMADDRESS"`
-	Event string `json:"EVENT"`
-	// MSIZE          int    `json:"MSIZE"`
-	// USERAGENT      string `json:"USERAGENT"`
-	// TAGS           string `json:"TAGS"`
-	// XAPIHEADER     string `json:"X-APIHEADER"`
-	// URL            string `json:"URL"`
-	// IPADDRESS      string `json:"IPADDRESS"`
-	// BOUNCETYPE     string `json:"BOUNCE_TYPE"`
-	// BOUNCEREASON   string `json:"BOUNCE_REASON"`
-	// BOUNCEREASONID int    `json:"BOUNCE_REASONID"`
+	TransID        int64  `json:"TRANSID"`
+	Response       string `json:"RESPONSE"`
+	Email          string `json:"EMAIL"`
+	Timestamp      int    `json:"TIMESTAMP"`
+	FromAddress    string `json:"FROMADDRESS"`
+	Event          string `json:"EVENT"`
+	MSize          int    `json:"MSIZE"`
+	UserAgent      string `json:"USERAGENT"`
+	Tags           string `json:"TAGS"`
+	XAPIHeader     string `json:"X-APIHEADER"`
+	URL            string `json:"URL"`
+	IPAddress      string `json:"IPADDRESS"`
+	BounceType     string `json:"BOUNCE_TYPE"`
+	BounceReason   string `json:"BOUNCE_REASON"`
+	BounceReasonID int    `json:"BOUNCE_REASONID"`
 }
 
-var statsdClient *statsd.Client
-
-func handler(w http.ResponseWriter, r *http.Request) {
-	var data []Data
-	body, err := ioutil.ReadAll(r.Body)
-	check(err)
-	err = json.Unmarshal(body, &data)
-	if err == nil {
-		for _, d := range data {
-			metric := fmt.Sprintf("pepipost.email.%s", d.Event)
-			err = statsdClient.Incr(metric, nil, 1)
-			check(err)
-		}
-	}
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
-}
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+func init() {
+	log.SetFormatter(&log.JSONFormatter{})
+	log.SetOutput(os.Stdout)
+	log.SetLevel(log.WarnLevel)
 }
 
-func readinessHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
-}
-
-func check(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
-}
 func main() {
+	svc, err := statsd.New("")
 
-	cl, err := statsd.New("")
-	check(err)
-	statsdClient = cl
+	if err != nil {
+		log.Fatalln(err)
+	}
 
-	log.Println("Server Started")
+	log.Info("Server Started")
 
-	http.HandleFunc("/", handler)
-	http.HandleFunc("/healthz", healthHandler)
-	http.HandleFunc("/readiness", readinessHandler)
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		var data []Data
+
+		body, err := ioutil.ReadAll(r.Body)
+
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		err = json.Unmarshal(body, &data)
+
+		if err == nil {
+			for _, d := range data {
+				metric := fmt.Sprintf("pepipost.email.%s", d.Event)
+				err = svc.Incr(metric, nil, 1)
+
+				if d.Event == "invalid" {
+					log.WithField("event", d).Error("pepipost.email.invalid")
+				}
+			}
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	http.HandleFunc("/readiness", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	err = http.ListenAndServe(":8080", nil)
+
+	if err != nil {
+		log.Fatalf("Could not start server: %s\n", err.Error())
+	}
 }
