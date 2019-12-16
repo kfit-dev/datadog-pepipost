@@ -50,19 +50,25 @@ func main() {
 		body, err := ioutil.ReadAll(r.Body)
 
 		if err != nil {
-			log.Fatalln(err)
+			log.Error(err)
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("BAD_REQUEST"))
 		}
 
 		err = json.Unmarshal(body, &data)
 
-		if err == nil {
-			for _, d := range data {
-				metric := fmt.Sprintf("pepipost.email.%s", d.Event)
-				err = svc.Incr(metric, nil, 1)
+		if err != nil {
+			log.Error(err)
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("BAD_REQUEST"))
+		}
 
-				if d.Event == "invalid" {
-					log.WithField("event", d).Warn("pepipost.email.invalid")
-				}
+		for _, d := range data {
+			metric := fmt.Sprintf("pepipost.email.%s", d.Event)
+			err = svc.Incr(metric, nil, 1)
+
+			if d.Event == "invalid" {
+				log.WithField("event", d).Warn("pepipost.email.invalid")
 			}
 		}
 
