@@ -53,6 +53,7 @@ func main() {
 			log.Error(err)
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("BAD_REQUEST"))
+			return
 		}
 
 		err = json.Unmarshal(body, &data)
@@ -61,6 +62,7 @@ func main() {
 			log.Error(err)
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("BAD_REQUEST"))
+			return
 		}
 
 		for _, d := range data {
