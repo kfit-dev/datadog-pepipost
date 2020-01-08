@@ -13,13 +13,13 @@ import (
 )
 
 type Data struct {
-	TransID        string `json:"TRANSID"`
+	TransID        int64  `json:"TRANSID"`
 	Response       string `json:"RESPONSE"`
 	Email          string `json:"EMAIL"`
-	Timestamp      string `json:"TIMESTAMP"`
+	Timestamp      int    `json:"TIMESTAMP"`
 	FromAddress    string `json:"FROMADDRESS"`
 	Event          string `json:"EVENT"`
-	MSize          string `json:"MSIZE"`
+	MSize          int    `json:"MSIZE"`
 	UserAgent      string `json:"USERAGENT"`
 	Tags           string `json:"TAGS"`
 	XAPIHeader     string `json:"X-APIHEADER"`
@@ -27,7 +27,7 @@ type Data struct {
 	IPAddress      string `json:"IPADDRESS"`
 	BounceType     string `json:"BOUNCE_TYPE"`
 	BounceReason   string `json:"BOUNCE_REASON"`
-	BounceReasonID string `json:"BOUNCE_REASONID"`
+	BounceReasonID int    `json:"BOUNCE_REASONID"`
 }
 
 func init() {
